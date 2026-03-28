@@ -26,9 +26,13 @@ export function computePointColors(pointArray, mode = 'rgb') {
   if (mode === 'rgb') {
     for (let i = 0; i < pointArray.length; i++) {
       const p = pointArray[i];
-      colors[i * 3] = p.r / 255;
-      colors[i * 3 + 1] = p.g / 255;
-      colors[i * 3 + 2] = p.b / 255;
+      // Normalize 0–255 to 0–1; fall back to 0 if undefined
+      const r = typeof p.r === 'number' ? p.r : 0;
+      const g = typeof p.g === 'number' ? p.g : 0;
+      const b = typeof p.b === 'number' ? p.b : 0;
+      colors[i * 3] = r / 255;
+      colors[i * 3 + 1] = g / 255;
+      colors[i * 3 + 2] = b / 255;
     }
     return colors;
   }

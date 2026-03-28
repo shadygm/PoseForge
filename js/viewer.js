@@ -177,6 +177,9 @@ class PoseForgeViewer {
     const mat = new THREE.PointsMaterial({
       size: this._currentPointSize, vertexColors: true, sizeAttenuation: true,
     });
+    // Mark attributes as needing update so Three.js picks up the color buffer
+    geom.attributes.position.needsUpdate = true;
+    geom.attributes.color.needsUpdate = true;
     this.pointCloud = new THREE.Points(geom, mat);
     this.pointGroup.add(this.pointCloud);
   }
@@ -254,7 +257,7 @@ class PoseForgeViewer {
   toggleCameras(v)  { this.frustumGroup.visible = v; this.cameraMeshes.forEach(m => m.visible = v); }
   toggleTrajectory(v) { this.trajectoryGroup.visible = v; }
   setPointSize(s)   { this._currentPointSize = s; if (this.pointCloud) this.pointCloud.material.size = s; }
-  setPointOpacity(o) { if (this.pointCloud) this.pointCloud.material.opacity = o; this.pointCloud.material.transparent = o < 1; }
+  setPointOpacity(o) { if (this.pointCloud) { this.pointCloud.material.opacity = o; this.pointCloud.material.transparent = o < 1; } }
 
   toggleGrid() {
     this.gridVisible = !this.gridVisible;
