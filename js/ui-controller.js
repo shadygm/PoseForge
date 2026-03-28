@@ -165,7 +165,7 @@ class PoseForgeUI {
 
   adjustPointSize(factor) {
     const slider = document.getElementById('point-size');
-    const newVal = Math.max(0.001, Math.min(0.2, parseFloat(slider.value) * factor));
+    const newVal = Math.max(0.001, Math.min(0.5, parseFloat(slider.value) * factor));
     slider.value = newVal;
     this.viewer.setPointSize(newVal);
   }
