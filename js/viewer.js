@@ -212,7 +212,7 @@ class PoseForgeViewer {
     if (!img) return;
 
     const q = this.colmapQuatToThree(img.q);
-    const t = new THREE.Vector3(img.t.x, img.t.y, img.t.z);
+    const t = this.colmapToThree(img.t);
     const invQ = q.clone().invert();
     const pos = t.clone().applyQuaternion(invQ).negate();
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(invQ);
