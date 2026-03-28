@@ -7,11 +7,22 @@ const COLMAP_BIN = ['cameras.bin', 'images.bin', 'points3D.bin'];
 const COLMAP_TXT = ['cameras.txt', 'images.txt', 'points3D.txt'];
 const ALL_COLMAP = [...COLMAP_BIN, ...COLMAP_TXT];
 
+const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.tif'];
+
+function isImageFile(name) {
+  const lower = name.toLowerCase();
+  return IMAGE_EXTS.some(ext => lower.endsWith(ext));
+}
+
 function classifyFile(file, map) {
   const name = file.name;
   if (name === 'cameras.bin' || name === 'cameras.txt')  map.cameras  = file;
   else if (name === 'images.bin' || name === 'images.txt')  map.images  = file;
   else if (name === 'points3D.bin' || name === 'points3D.txt') map.points3D = file;
+  else if (isImageFile(name)) {
+    if (!map.imageFiles) map.imageFiles = {};
+    map.imageFiles[name] = file;
+  }
 }
 
 /** Check if any key has a file assigned. */
@@ -98,11 +109,14 @@ export function classifyInputFiles(fileList) {
   const files = {};
   for (const f of fileList) {
     // Use webkitRelativePath to match files in subdirectories (e.g. sparse/0/cameras.bin)
-    const path = f.webkitRelativePath || f.name;
     const name = f.name;
     if (name === 'cameras.bin' || name === 'cameras.txt') files.cameras = f;
     else if (name === 'images.bin' || name === 'images.txt') files.images = f;
     else if (name === 'points3D.bin' || name === 'points3D.txt') files.points3D = f;
+    else if (isImageFile(name)) {
+      if (!files.imageFiles) files.imageFiles = {};
+      files.imageFiles[name] = f;
+    }
   }
   return files;
 }

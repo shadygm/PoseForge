@@ -26,7 +26,7 @@ class PoseForgeViewer {
     this.autoRotating = false;
     this.onCameraClick = null;
     this._currentColorMode = 'rgb';
-    this._currentPointSize = 0.02;
+    this._currentPointSize = 0.04;
 
     this.init();
   }
@@ -177,6 +177,9 @@ class PoseForgeViewer {
     const mat = new THREE.PointsMaterial({
       size: this._currentPointSize, vertexColors: true, sizeAttenuation: true,
     });
+    // Mark attributes as needing update so Three.js picks up the color buffer
+    geom.attributes.position.needsUpdate = true;
+    geom.attributes.color.needsUpdate = true;
     this.pointCloud = new THREE.Points(geom, mat);
     this.pointGroup.add(this.pointCloud);
   }
@@ -213,12 +216,19 @@ class PoseForgeViewer {
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
-    const dist = maxDim * 1.5;
+
+    // Position camera far enough to see the full scene
+    const fovRad = THREE.MathUtils.degToRad(this.camera.fov);
+    const dist = (maxDim / 2) / Math.tan(fovRad / 2) * 1.5;
 
     this.camera.position.set(center.x + dist * 0.5, center.y + dist * 0.5, center.z + dist);
     this.controls.target.copy(center);
-    this.camera.near = maxDim * 0.0001;
-    this.camera.far = maxDim * 200;
+
+    // Set near/far to fully encompass scene without clipping any points.
+    // near: small fraction of scene size but never smaller than 1e-4 (avoids z-fighting)
+    // far: large enough to see everything even when zoomed out significantly
+    this.camera.near = Math.max(maxDim * 0.00005, 1e-4);
+    this.camera.far = maxDim * 500;
     this.camera.updateProjectionMatrix();
     this.controls.update();
   }
@@ -237,6 +247,9 @@ class PoseForgeViewer {
 
     this.camera.position.copy(pos);
     this.controls.target.copy(pos.clone().add(forward.clone().multiplyScalar(2)));
+
+    // Preserve near/far from fitView so points don't clip when jumping between cameras
+    this.camera.updateProjectionMatrix();
     this.controls.update();
   }
 
@@ -244,7 +257,7 @@ class PoseForgeViewer {
   toggleCameras(v)  { this.frustumGroup.visible = v; this.cameraMeshes.forEach(m => m.visible = v); }
   toggleTrajectory(v) { this.trajectoryGroup.visible = v; }
   setPointSize(s)   { this._currentPointSize = s; if (this.pointCloud) this.pointCloud.material.size = s; }
-  setPointOpacity(o) { if (this.pointCloud) this.pointCloud.material.opacity = o; this.pointCloud.material.transparent = o < 1; }
+  setPointOpacity(o) { if (this.pointCloud) { this.pointCloud.material.opacity = o; this.pointCloud.material.transparent = o < 1; } }
 
   toggleGrid() {
     this.gridVisible = !this.gridVisible;
