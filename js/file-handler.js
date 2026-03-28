@@ -45,30 +45,59 @@ async function readDirectoryEntries(dirEntry) {
 
 export async function extractColmapFiles(dataTransfer) {
   const files = {};
+  console.log('extractColmapFiles called with dataTransfer:', dataTransfer);
+  
   if (dataTransfer.items && dataTransfer.items.length > 0) {
     const entries = [];
     for (const item of dataTransfer.items) {
       const entry = item.webkitGetAsEntry?.();
       if (entry) entries.push(entry);
     }
+    console.log('Found entries:', entries);
+    
     if (entries.length > 0) {
       const allFiles = [];
       for (const entry of entries) {
-        if (entry.isDirectory) allFiles.push(...await readDirectoryEntries(entry));
-        else if (entry.isFile) allFiles.push(await new Promise(r => entry.file(r)));
+        console.log('Processing entry:', entry, entry.isDirectory ? 'is directory' : 'is file');
+        if (entry.isDirectory) {
+          const dirFiles = await readDirectoryEntries(entry);
+          console.log('Directory files:', dirFiles);
+          allFiles.push(...dirFiles);
+        } else if (entry.isFile) {
+          const file = await new Promise(r => entry.file(r));
+          console.log('Single file:', file);
+          allFiles.push(file);
+        }
       }
-      for (const f of allFiles) classifyFile(f, files);
+      console.log('Total files found:', allFiles.length);
+      for (const f of allFiles) {
+        console.log('Classifying file:', f.name, 'before:', Object.keys(files));
+        classifyFile(f, files);
+        console.log('Classified file:', f.name, 'after:', Object.keys(files));
+      }
     }
   }
   if (!hasAllFiles(files) && dataTransfer.files) {
-    for (const f of dataTransfer.files) classifyFile(f, files);
+    console.log('Falling back to dataTransfer.files');
+    for (const f of dataTransfer.files) {
+      console.log('Classifying fallback file:', f.name);
+      classifyFile(f, files);
+    }
   }
+  
+  console.log('Final files object:', files);
   return files;
 }
 
 export function classifyInputFiles(fileList) {
   const files = {};
-  for (const f of fileList) classifyFile(f, files);
+  console.log('classifyInputFiles called with:', fileList.length, 'files');
+  for (const f of fileList) {
+    console.log('Classifying input file:', f.name, 'before:', Object.keys(files));
+    classifyFile(f, files);
+    console.log('Classified input file:', f.name, 'after:', Object.keys(files));
+  }
+  console.log('Final input files object:', files);
   return files;
 }
 
