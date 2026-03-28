@@ -21,10 +21,11 @@ export function buildTrajectory(images, quatFn, posFn) {
   );
 
   const positions = sorted.map(img => {
-    const q = quatFn(img.q);
+    // quatFn returns camera-to-world; invert to get world-to-camera for position math
+    const camToWorld = quatFn(img.q);
     const t = posFn(img.t);
-    const invQ = q.clone().invert();
-    return t.clone().applyQuaternion(invQ).negate();
+    const worldToCam = camToWorld.clone().invert();
+    return t.clone().applyQuaternion(worldToCam).negate();
   });
 
   const geometry = new THREE.BufferGeometry().setFromPoints(positions);
