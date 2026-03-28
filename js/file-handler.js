@@ -19,26 +19,54 @@ export function hasAllFiles(files) {
   return !!(files.cameras && files.images && files.points3D);
 }
 
+/** Get a human-readable list of found vs missing files. */
+export function getFileStatus(files) {
+  const found = [];
+  const missing = [];
+  if (files.cameras) found.push(files.cameras.name);
+  else missing.push('cameras.bin/txt');
+  if (files.images) found.push(files.images.name);
+  else missing.push('images.bin/txt');
+  if (files.points3D) found.push(files.points3D.name);
+  else missing.push('points3D.bin/txt');
+  return { found, missing };
+}
+
 /** Detect if a file is text format based on extension. */
 export function isTextFile(file) {
   return file.name.endsWith('.txt');
 }
 
-async function readDirectoryEntries(dirEntry) {
+/**
+ * Recursively read all File entries from a FileSystemDirectoryEntry.
+ * Handles the browser readEntries() batch limitation by reading until empty.
+ * Limits recursion to 10 levels deep to prevent runaway.
+ */
+async function readDirectoryEntries(dirEntry, depth = 0) {
+  if (depth > 10) return [];
   const reader = dirEntry.createReader();
   const all = [];
-  const readBatch = () => new Promise(resolve => {
-    reader.readEntries(entries => {
-      if (entries.length === 0) { resolve(); return; }
-      for (const e of entries) all.push(e);
-      readBatch().then(resolve);
-    });
+
+  // readEntries() may return batches; keep calling until empty
+  const readBatch = () => new Promise((resolve, reject) => {
+    reader.readEntries(
+      entries => {
+        if (entries.length === 0) { resolve(); return; }
+        for (const e of entries) all.push(e);
+        readBatch().then(resolve, reject);
+      },
+      reject
+    );
   });
   await readBatch();
+
   const files = [];
   for (const entry of all) {
-    if (entry.isFile) files.push(await new Promise(r => entry.file(r)));
-    else if (entry.isDirectory) files.push(...await readDirectoryEntries(entry));
+    if (entry.isFile) {
+      files.push(await new Promise((resolve, reject) => entry.file(resolve, reject)));
+    } else if (entry.isDirectory) {
+      files.push(...await readDirectoryEntries(entry, depth + 1));
+    }
   }
   return files;
 }
@@ -68,7 +96,14 @@ export async function extractColmapFiles(dataTransfer) {
 
 export function classifyInputFiles(fileList) {
   const files = {};
-  for (const f of fileList) classifyFile(f, files);
+  for (const f of fileList) {
+    // Use webkitRelativePath to match files in subdirectories (e.g. sparse/0/cameras.bin)
+    const path = f.webkitRelativePath || f.name;
+    const name = f.name;
+    if (name === 'cameras.bin' || name === 'cameras.txt') files.cameras = f;
+    else if (name === 'images.bin' || name === 'images.txt') files.images = f;
+    else if (name === 'points3D.bin' || name === 'points3D.txt') files.points3D = f;
+  }
   return files;
 }
 
@@ -88,7 +123,10 @@ export function setupFileDrop({ onDrop, onError, setStatus }) {
     if (overlay) overlay.classList.add('hidden');
     const files = await extractColmapFiles(e.dataTransfer);
     if (hasAllFiles(files)) await onDrop(files);
-    else onError('Missing files. Need cameras.bin/txt, images.bin/txt, points3D.bin/txt');
+    else {
+      const status = getFileStatus(files);
+      onError(`Missing files: ${status.missing.join(', ')}. Found: ${status.found.join(', ') || 'none'}`);
+    }
   });
 }
 
@@ -96,13 +134,19 @@ export function setupFileInputs({ onFiles, onError }) {
   document.getElementById('folder-input').addEventListener('change', async e => {
     const files = classifyInputFiles(e.target.files);
     if (hasAllFiles(files)) await onFiles(files);
-    else onError('Missing files. Need cameras.bin/txt, images.bin/txt, points3D.bin/txt');
+    else {
+      const status = getFileStatus(files);
+      onError(`Missing files: ${status.missing.join(', ')}. Found: ${status.found.join(', ') || 'none'}`);
+    }
     e.target.value = '';
   });
   document.getElementById('file-input').addEventListener('change', async e => {
     const files = classifyInputFiles(e.target.files);
     if (hasAllFiles(files)) await onFiles(files);
-    else onError('Missing files. Need cameras.bin/txt, images.bin/txt, points3D.bin/txt');
+    else {
+      const status = getFileStatus(files);
+      onError(`Missing files: ${status.missing.join(', ')}. Found: ${status.found.join(', ') || 'none'}`);
+    }
     e.target.value = '';
   });
 }
