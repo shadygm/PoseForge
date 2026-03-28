@@ -47,7 +47,11 @@ class ColmapReader {
       const modelId = this.readInt32();
       const width = this.readUint64();
       const height = this.readUint64();
-      const numParams = ColmapReader.CAMERA_MODEL_PARAMS[modelId] ?? 4;
+      
+      // FIX: Read num_params field from COLMAP binary (CRITICAL)
+      // Real COLMAP format includes num_params field after height
+      const numParams = this.readUint64();
+      
       const params = this.readFloat64Array(numParams);
       cameras[cameraId] = {
         id: cameraId,
