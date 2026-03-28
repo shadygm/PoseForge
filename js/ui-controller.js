@@ -27,7 +27,7 @@ class PoseForgeUI {
     this.setupFileHandling();
     this.setupToggles();
     this.setupNewControls();
-    this.viewer.onCameraClick = (id) => this.jumpToCamera(id);
+    this.viewer.onCameraClick = (id) => this.showImageViewer(id);
     setupKeyboardShortcuts(viewer, this);
   }
 
@@ -83,6 +83,162 @@ class PoseForgeUI {
   jumpToCamera(imageId) {
     this.viewer.jumpToCamera(imageId);
     highlightCameraItem(imageId, this.viewer.images);
+  }
+
+  showImageViewer(imageId) {
+    const img = this.viewer.images[imageId];
+    if (!img) return;
+
+    // Update modal title and image
+    const modal = document.getElementById('image-viewer-modal');
+    const title = document.getElementById('image-viewer-title');
+    const image = document.getElementById('image-viewer-image');
+    const cameraInfo = document.getElementById('camera-info');
+
+    title.textContent = img.name;
+    image.src = `images/${img.name}`;
+    image.alt = img.name;
+
+    // Update camera information
+    const camera = this.viewer.cameras[img.cameraId];
+    if (camera) {
+      cameraInfo.innerHTML = `
+        <div>Camera ID: ${camera.id}</div>
+        <div>Model: ${camera.modelName}</div>
+        <div>Resolution: ${camera.width}×${camera.height}</div>
+        <div>Parameters: ${camera.params.map(p => p.toFixed(3)).join(', ')}</div>
+      `;
+    } else {
+      cameraInfo.innerHTML = `
+        <div>Camera ID: ${img.cameraId}</div>
+        <div>No camera parameters available</div>
+      `;
+    }
+
+    // Show modal
+    modal.classList.remove('hidden');
+    modal.classList.add('show');
+
+    // Reset zoom and pan
+    this.resetImageViewer();
+
+    // Setup event listeners
+    this.setupImageViewerEvents(imageId);
+  }
+
+  setupImageViewerEvents(imageId) {
+    const modal = document.getElementById('image-viewer-modal');
+    const image = document.getElementById('image-viewer-image');
+    const closeBtn = document.getElementById('image-viewer-close');
+    const zoomIn = document.getElementById('zoom-in');
+    const zoomOut = document.getElementById('zoom-out');
+    const zoomReset = document.getElementById('zoom-reset');
+
+    // Close button
+    closeBtn.onclick = () => this.closeImageViewer();
+
+    // Close on Escape key
+    const onKeydown = (e) => {
+      if (e.key === 'Escape') this.closeImageViewer();
+      else if (e.key === '+' || e.key === '=') this.zoomImageViewer(1.2);
+      else if (e.key === '-' || e.key === '_') this.zoomImageViewer(0.8);
+      else if (e.key === '0') this.resetImageViewer();
+    };
+    document.addEventListener('keydown', onKeydown);
+
+    // Click outside to close
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) this.closeImageViewer();
+    });
+
+    // Zoom controls
+    zoomIn.onclick = () => this.zoomImageViewer(1.2);
+    zoomOut.onclick = () => this.zoomImageViewer(0.8);
+    zoomReset.onclick = () => this.resetImageViewer();
+
+    // Mouse wheel zoom
+    image.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+      this.zoomImageViewer(zoomFactor);
+    }, { passive: false });
+
+    // Pan functionality
+    let isPanning = false;
+    let startX, startY, startScrollLeft, startScrollTop;
+
+    image.addEventListener('mousedown', (e) => {
+      if (e.button === 0) { // Left mouse button
+        isPanning = true;
+        startX = e.pageX - image.offsetLeft;
+        startY = e.pageY - image.offsetTop;
+        startScrollLeft = image.scrollLeft;
+        startScrollTop = image.scrollTop;
+        image.style.cursor = 'grabbing';
+      }
+    });
+
+    image.addEventListener('mouseleave', () => {
+      isPanning = false;
+      image.style.cursor = 'grab';
+    });
+
+    image.addEventListener('mouseup', () => {
+      isPanning = false;
+      image.style.cursor = 'grab';
+    });
+
+    image.addEventListener('mousemove', (e) => {
+      if (!isPanning) return;
+      e.preventDefault();
+      const x = e.pageX - image.offsetLeft;
+      const y = e.pageY - image.offsetTop;
+      const walkX = (x - startX) * 2;
+      const walkY = (y - startY) * 2;
+      image.scrollLeft = startScrollLeft - walkX;
+      image.scrollTop = startScrollTop - walkY;
+    });
+
+    // Store cleanup function for later
+    this.currentImageViewerCleanup = () => {
+      document.removeEventListener('keydown', onKeydown);
+      modal.removeEventListener('click', this.closeImageViewer);
+      zoomIn.onclick = null;
+      zoomOut.onclick = null;
+      zoomReset.onclick = null;
+      image.removeEventListener('wheel', null);
+      image.removeEventListener('mousedown', null);
+      image.removeEventListener('mouseleave', null);
+      image.removeEventListener('mouseup', null);
+      image.removeEventListener('mousemove', null);
+    };
+  }
+
+  zoomImageViewer(factor) {
+    const image = document.getElementById('image-viewer-image');
+    const currentTransform = image.style.transform || 'scale(1)';
+    const currentScale = parseFloat(currentTransform.match(/scale\(([\d.]+)\)/)?.[1] || 1);
+    const newScale = Math.max(0.1, Math.min(5, currentScale * factor));
+    image.style.transform = `scale(${newScale})`;
+  }
+
+  resetImageViewer() {
+    const image = document.getElementById('image-viewer-image');
+    image.style.transform = 'scale(1)';
+    image.scrollLeft = 0;
+    image.scrollTop = 0;
+  }
+
+  closeImageViewer() {
+    const modal = document.getElementById('image-viewer-modal');
+    modal.classList.remove('show');
+    modal.classList.add('hidden');
+    
+    // Cleanup event listeners
+    if (this.currentImageViewerCleanup) {
+      this.currentImageViewerCleanup();
+      this.currentImageViewerCleanup = null;
+    }
   }
 
   setupToggles() {

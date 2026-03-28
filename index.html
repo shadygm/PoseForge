@@ -86,6 +86,29 @@
     <div id="camera-list"></div>
   </div>
 
+  <!-- Image Viewer Modal -->
+  <div id="image-viewer-modal" class="image-viewer-modal hidden">
+    <div class="image-viewer-content">
+      <div class="image-viewer-header">
+        <h3 id="image-viewer-title">Image Viewer</h3>
+        <button class="image-viewer-close" id="image-viewer-close">&times;</button>
+      </div>
+      <div class="image-viewer-body">
+        <div class="image-viewer-container">
+          <img id="image-viewer-image" src="" alt="Camera image">
+          <div class="image-viewer-zoom-controls">
+            <button class="zoom-btn" id="zoom-in">+</button>
+            <button class="zoom-btn" id="zoom-out">-</button>
+            <button class="zoom-btn" id="zoom-reset">⟲</button>
+          </div>
+        </div>
+        <div class="image-viewer-info">
+          <div id="camera-info"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="viewport">
     <div id="drop-zone">
       <div class="drop-box">
