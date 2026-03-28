@@ -113,6 +113,12 @@ class PoseForgeViewer {
     if (traj) this.trajectoryGroup.add(traj);
 
     this.fitView();
+
+    // Start at the first image view
+    const firstImageId = Object.keys(images).sort((a, b) => Number(a) - Number(b))[0];
+    if (firstImageId) {
+      this.jumpToCamera(Number(firstImageId));
+    }
   }
 
   _buildPointCloud(pointArray, colorMode) {
@@ -176,8 +182,8 @@ class PoseForgeViewer {
 
     this.camera.position.set(center.x + dist * 0.5, center.y + dist * 0.5, center.z + dist);
     this.controls.target.copy(center);
-    this.camera.near = maxDim * 0.001;
-    this.camera.far = maxDim * 100;
+    this.camera.near = maxDim * 0.0001;
+    this.camera.far = maxDim * 200;
     this.camera.updateProjectionMatrix();
     this.controls.update();
   }
