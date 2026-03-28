@@ -246,3 +246,125 @@ body {
   font-size: 14px;
   color: #52525b;
 }
+
+/* Camera list image viewer button */
+.camera-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.camera-item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.camera-item-img-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 2px;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+  color: inherit;
+}
+
+.camera-item:hover .camera-item-img-btn,
+.camera-item-img-btn:hover {
+  opacity: 1;
+}
+
+/* Image Viewer Modal */
+.iv-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.iv-overlay.hidden { display: none; }
+
+.iv-dialog {
+  background: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 10px;
+  width: 80vw;
+  max-width: 960px;
+  height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+}
+
+.iv-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid #27272a;
+  gap: 10px;
+}
+
+.iv-title {
+  flex: 1;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  color: #a1a1aa;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iv-close {
+  background: none;
+  border: none;
+  color: #71717a;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.iv-close:hover {
+  color: #e4e4e7;
+  background: #27272a;
+}
+
+.iv-image-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  background: #09090b;
+  user-select: none;
+}
+
+.iv-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transform-origin: center center;
+  transition: none;
+  pointer-events: none;
+}
+
+.iv-info {
+  padding: 8px 14px;
+  font-size: 11px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: #52525b;
+  border-top: 1px solid #27272a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
