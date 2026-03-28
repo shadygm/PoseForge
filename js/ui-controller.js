@@ -50,6 +50,89 @@ class PoseForgeUI {
     });
   }
 
+  setupImportButton() {
+    const importBtn = document.getElementById('import-colmap-btn');
+    if (importBtn) {
+      importBtn.addEventListener('click', () => this.showImportDialog());
+    }
+  }
+
+  showImportDialog() {
+    // Reset file inputs and trigger file dialog
+    const fileInput = document.getElementById('file-input');
+    const folderInput = document.getElementById('folder-input');
+    
+    // Show both options to user
+    const choice = confirm('Choose import method:\n\nOK = Choose individual files\nCancel = Choose folder');
+    
+    if (choice) {
+      fileInput.click();
+    } else {
+      folderInput.click();
+    }
+  }
+
+  async clearAndReset() {
+    // Clear all data
+    this._cameras = {};
+    this._images = {};
+    this._points = {};
+    
+    // Clear viewer
+    if (this.viewer) {
+      this.viewer.clearScene();
+    }
+    
+    // Clear UI
+    document.getElementById('camera-list').innerHTML = '';
+    document.getElementById('drop-zone').classList.remove('hidden');
+    document.getElementById('controls').classList.add('hidden');
+    document.getElementById('stats-display').innerHTML = '';
+    
+    // Reset controls
+    document.getElementById('toggle-points').checked = true;
+    document.getElementById('toggle-cameras').checked = true;
+    document.getElementById('toggle-trajectory').checked = true;
+    document.getElementById('point-size').value = 0.02;
+    document.getElementById('opacity-slider').value = 1;
+    
+    this.setStatus('Ready for new COLMAP data', 'info');
+  }
+
+  async loadFiles(files, isReload = false) {
+    if (isReload) {
+      await this.clearAndReset();
+    }
+    
+    this.setStatus('Loading...', 'info');
+    try {
+      this.setStatus('Parsing cameras...', 'info');
+      const cameras = await this.readColmapFile(files.cameras, 'readCameras');
+      this.setStatus('Parsing images...', 'info');
+      const images = await this.readColmapFile(files.images, 'readImages');
+      this.setStatus('Parsing points...', 'info');
+      const points = await this.readColmapFile(files.points3D, 'readPoints3D');
+
+      this._cameras = cameras;
+      this._images = images;
+      this._points = points;
+
+      const nc = Object.keys(cameras).length;
+      const ni = Object.keys(images).length;
+      const np = Object.keys(points).length;
+      this.setStatus(`Loaded ${nc} cameras, ${ni} images, ${np} points`, 'success');
+
+      buildCameraList(images, (id) => this.jumpToCamera(id));
+      document.getElementById('drop-zone').classList.add('hidden');
+      document.getElementById('controls').classList.remove('hidden');
+      this.viewer.loadImageData(cameras, images, points);
+      this.refreshFilters();
+    } catch (err) {
+      console.error(err);
+      this.setStatus('Error: ' + err.message, 'error');
+    }
+  }
+
   async loadFiles(files) {
     this.setStatus('Loading...', 'info');
     try {
@@ -91,10 +174,8 @@ class PoseForgeUI {
     document.getElementById('toggle-trajectory').addEventListener('change', e => this.viewer.toggleTrajectory(e.target.checked));
     document.getElementById('point-size').addEventListener('input', e => this.viewer.setPointSize(parseFloat(e.target.value)));
     document.getElementById('fit-view-btn').addEventListener('click', () => this.viewer.fitView());
-    document.getElementById('reload-btn').addEventListener('click', () => {
-      document.getElementById('drop-zone').classList.remove('hidden');
-      document.getElementById('controls').classList.add('hidden');
-    });
+    document.getElementById('reload-btn').addEventListener('click', () => this.clearAndReset());
+    this.setupImportButton();
   }
 
   setupNewControls() {
