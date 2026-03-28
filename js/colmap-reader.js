@@ -113,14 +113,17 @@ class ColmapReader {
       const r = this.readUint8();
       const g = this.readUint8();
       const b = this.readUint8();
-      this.readUint8(); // padding/color align
+      // COLMAP binary format: RGB is 3×uint8 with NO padding before float64 error.
+      // The extra readUint8() previously here was incorrect and shifted all
+      // subsequent reads by 1 byte, corrupting point positions and colors.
       const error = this.readFloat64();
 
       const trackLength = this.readUint64();
       const track = [];
       for (let j = 0; j < trackLength; j++) {
-        const imageId = this.readUint64();
-        const point2DIdx = this.readInt32();
+        // COLMAP track format: pairs of uint32 (image_id, point2D_idx)
+        const imageId = this.view.getUint32(this.offset, true); this.offset += 4;
+        const point2DIdx = this.view.getUint32(this.offset, true); this.offset += 4;
         track.push({ imageId, point2DIdx });
       }
 
