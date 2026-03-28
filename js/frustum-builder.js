@@ -44,10 +44,13 @@ export function buildCameraFrustums(cameras, images, quatFn, posFn, mode = 'frus
     const cam = cameras[img.cameraId];
     if (!cam) continue;
 
-    const q = quatFn(img.q);
+    // quatFn returns camera-to-world quaternion; no inversion needed
+    const camToWorld = quatFn(img.q);
     const t = posFn(img.t);
-    const invQ = q.clone().invert();
-    const pos = t.clone().applyQuaternion(invQ).negate();
+    // Camera world position: -R^T * t  →  with camera-to-world quat: pos = -(camToWorld^-1 * t)
+    const worldToCam = camToWorld.clone().invert();
+    const pos = t.clone().applyQuaternion(worldToCam).negate();
+    const invQ = camToWorld; // alias for clarity in sub-builders
 
     let vis, hitbox;
     if (mode === 'arrow') {

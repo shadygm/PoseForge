@@ -94,26 +94,42 @@ class PoseForgeViewer {
     }
   }
 
-  /** Convert COLMAP quaternion to Three.js quaternion. */
+  /** Convert raw COLMAP quaternion (world-to-camera) to THREE.Quaternion. */
   quaternionFromColmap(q) {
     return new THREE.Quaternion(q.x, q.y, q.z, q.w);
   }
 
   /**
-   * Convert COLMAP world position to Three.js world position.
-   * COLMAP uses a right-handed coordinate system; Three.js is also right-handed
-   * but the Y axis convention differs. We negate Y and Z to fix orientation.
+   * Convert a COLMAP world-space position to Three.js world space.
+   *
+   * COLMAP uses OpenCV convention: X right, Y down, Z forward (right-handed).
+   * Three.js uses:                 X right, Y up,   Z backward (right-handed).
+   *
+   * The basis change is a 180° rotation around the X axis:
+   *   x' =  x,  y' = -y,  z' = -z
    */
   colmapToThree(pos) {
     return new THREE.Vector3(pos.x, -pos.y, -pos.z);
   }
 
   /**
-   * Convert COLMAP camera rotation to Three.js quaternion.
-   * Negates Y and Z rotation components to match colmapToThree position flip.
+   * Convert a COLMAP world-to-camera quaternion to a Three.js camera-to-world quaternion.
+   *
+   * Steps:
+   *   1. Invert to get camera-to-world rotation in COLMAP space.
+   *   2. Apply the X-axis 180° basis change: multiply by Rx(180°) = (1, 0, 0, 0) on the left.
+   *      Rx(180°) as quaternion = (sin90°, 0, 0, cos90°) = (1, 0, 0, 0) — i.e. pure i quaternion.
+   *      Left-multiplying flips Y and Z axes of the rotation.
    */
   colmapQuatToThree(q) {
-    return new THREE.Quaternion(-q.x, q.y, q.z, q.w);
+    // World-to-camera quaternion from COLMAP
+    const wcq = new THREE.Quaternion(q.x, q.y, q.z, q.w);
+    // Invert → camera-to-world in COLMAP space
+    const cwq = wcq.clone().invert();
+    // Basis change: 180° around X  →  (qx, qy, qz, qw) → (qw, qz, -qy, -qx) ... simplified:
+    // Rx180 = quaternion(1, 0, 0, 0) (pure i)
+    const rx180 = new THREE.Quaternion(1, 0, 0, 0);
+    return rx180.multiply(cwq);
   }
 
   /** Clear all scene data and load new COLMAP data. */
@@ -211,11 +227,13 @@ class PoseForgeViewer {
     const img = this.images[imageId];
     if (!img) return;
 
-    const q = this.colmapQuatToThree(img.q);
-    const t = new THREE.Vector3(img.t.x, img.t.y, img.t.z);
-    const invQ = q.clone().invert();
-    const pos = t.clone().applyQuaternion(invQ).negate();
-    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(invQ);
+    // colmapQuatToThree returns camera-to-world quaternion
+    const camToWorld = this.colmapQuatToThree(img.q);
+    const t = this.colmapToThree(img.t);
+    const worldToCam = camToWorld.clone().invert();
+    const pos = t.clone().applyQuaternion(worldToCam).negate();
+    // Camera forward in Three.js is -Z; rotate to world space using camera-to-world
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camToWorld);
 
     this.camera.position.copy(pos);
     this.controls.target.copy(pos.clone().add(forward.clone().multiplyScalar(2)));
