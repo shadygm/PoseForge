@@ -80,9 +80,11 @@ function buildFrustum(invQ, pos, cam, img) {
   const scale = frustumLen / focalLength;
   const w = cam.width * scale, h = cam.height * scale;
 
+  // After Rx(180°) basis change, camera looks along -Z in Three.js space.
+  // Place frustum base at -frustumLen so it opens toward the subject.
   const verts = new Float32Array([
-    0, 0, 0, -w/2, -h/2, frustumLen, w/2, -h/2, frustumLen,
-    w/2, h/2, frustumLen, -w/2, h/2, frustumLen,
+    0, 0, 0, -w/2, -h/2, -frustumLen, w/2, -h/2, -frustumLen,
+    w/2, h/2, -frustumLen, -w/2, h/2, -frustumLen,
   ]);
   const indices = [0,1,2, 0,2,3, 0,3,4, 0,4,1, 1,2,3, 1,3,4];
 
