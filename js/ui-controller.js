@@ -11,6 +11,7 @@ import { filterPoints } from './point-filtering.js';
 import { COLOR_MODES, COLOR_MODE_LABELS } from './point-coloring.js';
 import { updateStats } from './stats-display.js';
 import { setupKeyboardShortcuts } from './keyboard-shortcuts.js';
+import { getImageViewer } from './image-viewer.js';
 import * as THREE from 'three';
 
 const CAMERA_MODES = ['frustum', 'arrow', 'imagePlane'];
@@ -24,6 +25,8 @@ class PoseForgeUI {
     this._cameras = {};
     this._images = {};
     this._points = {};
+    /** Map of base filename → File object for raw images */
+    this._imageFiles = {};
     this.setupFileHandling();
     this.setupToggles();
     this.setupNewControls();
@@ -63,13 +66,19 @@ class PoseForgeUI {
       this._cameras = cameras;
       this._images = images;
       this._points = points;
+      this._imageFiles = files.imageFiles || {};
 
       const nc = Object.keys(cameras).length;
       const ni = Object.keys(images).length;
       const np = Object.keys(points).length;
       this.setStatus(`Loaded ${nc} cameras, ${ni} images, ${np} points`, 'success');
 
-      buildCameraList(images, (id) => this.jumpToCamera(id));
+      const hasImgFiles = Object.keys(this._imageFiles).length > 0;
+      buildCameraList(
+        images,
+        (id) => this.jumpToCamera(id),
+        hasImgFiles ? (id) => this.openImageViewer(id) : null
+      );
       document.getElementById('drop-zone').classList.add('hidden');
       document.getElementById('controls').classList.remove('hidden');
       this.viewer.loadImageData(cameras, images, points);
@@ -83,6 +92,45 @@ class PoseForgeUI {
   jumpToCamera(imageId) {
     this.viewer.jumpToCamera(imageId);
     highlightCameraItem(imageId, this.viewer.images);
+  }
+
+  /**
+   * Open the image viewer popup for a given image ID.
+   * Looks up the corresponding File by the image name stored in the COLMAP images dict.
+   * @param {number} imageId
+   */
+  openImageViewer(imageId) {
+    const img = this._images[imageId];
+    if (!img) return;
+
+    // Try direct lookup first, then fall back to basename for relative paths like "images/foo.jpg"
+    const imgName = img.name || '';
+    let file = this._imageFiles[imgName];
+    if (!file && imgName) {
+      const baseName = imgName.split(/[/\\]/).pop();
+      if (baseName) file = this._imageFiles[baseName] || null;
+    }
+
+    if (!file) {
+      // Image file not available — show a notice in the viewer
+      const viewer = getImageViewer();
+      const camera = this._cameras[img.cameraId] || null;
+      viewer.show(null, imgName + ' (image file not loaded)', camera);
+      return;
+    }
+
+    // Revoke any previously created object URL before creating a new one
+    if (this._currentImageObjectUrl) {
+      URL.revokeObjectURL(this._currentImageObjectUrl);
+      this._currentImageObjectUrl = null;
+    }
+
+    const url = URL.createObjectURL(file);
+    this._currentImageObjectUrl = url;
+
+    const viewer = getImageViewer();
+    const camera = this._cameras[img.cameraId] || null;
+    viewer.show(url, imgName, camera);
   }
 
   setupToggles() {
