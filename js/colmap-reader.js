@@ -11,7 +11,17 @@ class ColmapReader {
   readUint64() { const v = Number(this.view.getBigUint64(this.offset, true)); this.offset += 8; return v; }
   readInt32() { const v = this.view.getInt32(this.offset, true); this.offset += 4; return v; }
   readFloat64() { const v = this.view.getFloat64(this.offset, true); this.offset += 8; return v; }
-  readFloat64Array(n) { const arr = []; for (let i = 0; i < n; i++) arr.push(this.readFloat64()); return arr; }
+  readFloat64Array(n) { 
+    // Check if we have enough bytes remaining
+    const requiredBytes = n * 8;
+    if (this.offset + requiredBytes > this.view.byteLength) {
+      throw new RangeError(`Insufficient buffer: need ${requiredBytes} bytes, only ${this.view.byteLength - this.offset} bytes remaining at offset ${this.offset}`);
+    }
+    
+    const arr = []; 
+    for (let i = 0; i < n; i++) arr.push(this.readFloat64()); 
+    return arr; 
+  }
 
   readNullTerminatedString() {
     const chars = [];
@@ -24,11 +34,17 @@ class ColmapReader {
   }
 
   static CAMERA_MODEL_PARAMS = {
-    0: 0, // Simple pinhole
-    1: 1, // Pinhole
-    2: 3, // Simple radial
-    3: 4, // Radial
-    4: 5, // OpenCV
+    0: 3, // SIMPLE_PINHOLE
+    1: 3, // PINHOLE
+    2: 4, // SIMPLE_RADIAL
+    3: 5, // RADIAL
+    4: 5, // OPENCV
+    5: 5, // OPENCV_FISHEYE
+    6: 12, // FULL_OPENCV
+    7: 4, // FOV
+    8: 4, // SIMPLE_RADIAL_FISHEYE
+    9: 5, // RADIAL_FISHEYE
+    10: 4, // THIN_PRISM_FISHEYE
   };
 
   static CAMERA_MODEL_NAMES = {
@@ -37,17 +53,45 @@ class ColmapReader {
     2: 'SIMPLE_RADIAL',
     3: 'RADIAL',
     4: 'OPENCV',
+    5: 'OPENCV_FISHEYE',
+    6: 'FULL_OPENCV',
+    7: 'FOV',
+    8: 'SIMPLE_RADIAL_FISHEYE',
+    9: 'RADIAL_FISHEYE',
+    10: 'THIN_PRISM_FISHEYE',
   };
 
   readCameras() {
     const numCameras = this.readUint64();
     const cameras = {};
+    
+    if (numCameras > 100000) {
+      throw new Error(`Invalid number of cameras: ${numCameras}. Possible file format issue.`);
+    }
+    
     for (let i = 0; i < numCameras; i++) {
       const cameraId = this.readUint64();
       const modelId = this.readInt32();
+      
+      // Validate modelId
+      if (modelId < 0 || modelId > 10) {
+        throw new Error(`Unknown camera model ID: ${modelId}. Valid range is 0-10.`);
+      }
+      
       const width = this.readUint64();
       const height = this.readUint64();
-      const numParams = ColmapReader.CAMERA_MODEL_PARAMS[modelId] ?? 4;
+      
+      // Get correct number of parameters with fallback
+      const numParams = ColmapReader.CAMERA_MODEL_PARAMS[modelId];
+      if (numParams === undefined) {
+        throw new Error(`Camera model ID ${modelId} has no defined parameter count.`);
+      }
+      
+      // Validate dimensions
+      if (width <= 0 || height <= 0) {
+        throw new Error(`Invalid camera dimensions: ${width}x${height}`);
+      }
+      
       const params = this.readFloat64Array(numParams);
       cameras[cameraId] = {
         id: cameraId,
