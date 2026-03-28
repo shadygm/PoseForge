@@ -1,178 +1,44 @@
-// Test for camera.bin parsing issue
-// According to COLMAP binary format specification:
-// Each camera record should be:
-// 1. camera_id (uint64)
-// 2. model_id (int32)
-// 3. width (uint64)
-// 4. height (uint64)
-// 5. num_params (uint64) - THIS IS MISSING in current code!
-// 6. params (float64[num_params])
+const CameraParser = require('./fix-camera-parsing.js');
 
-// Simple reproduction of the parsing logic
-class TestColmapReader {
-  constructor(buffer) {
-    this.view = new DataView(buffer);
-    this.offset = 0;
-  }
+const fs = require('fs');
+const path = require('path');
 
-  readUint64() { 
-    const v = Number(this.view.getBigUint64(this.offset, true)); 
-    this.offset += 8; 
-    return v; 
-  }
-  
-  readInt32() { 
-    const v = this.view.getInt32(this.offset, true); 
-    this.offset += 4; 
-    return v; 
-  }
-  
-  readFloat64() { 
-    const v = this.view.getFloat64(this.offset, true); 
-    this.offset += 8; 
-    return v; 
-  }
-  
-  readFloat64Array(n) { 
-    const arr = []; 
-    for (let i = 0; i < n; i++) arr.push(this.readFloat64()); 
-    return arr; 
-  }
-
-  static CAMERA_MODEL_PARAMS = {
-    0: 0, // Simple pinhole
-    1: 1, // Pinhole
-    2: 3, // Simple radial
-    3: 4, // Radial
-    4: 5, // OpenCV
-  };
-
-  static CAMERA_MODEL_NAMES = {
-    0: 'SIMPLE_PINHOLE',
-    1: 'PINHOLE',
-    2: 'SIMPLE_RADIAL',
-    3: 'RADIAL',
-    4: 'OPENCV',
-  };
-
-  // Current (BROKEN) readCameras method
-  readCameras_BROKEN() {
-    const numCameras = this.readUint64();
-    const cameras = {};
-    for (let i = 0; i < numCameras; i++) {
-      const cameraId = this.readUint64();
-      const modelId = this.readInt32();
-      const width = this.readUint64();
-      const height = this.readUint64();
-      
-      // BROKEN: Missing num_params read, assumes numParams based on modelId
-      const numParams = TestColmapReader.CAMERA_MODEL_PARAMS[modelId] ?? 4;
-      const params = this.readFloat64Array(numParams);
-      
-      cameras[cameraId] = {
-        id: cameraId,
-        modelId,
-        modelName: TestColmapReader.CAMERA_MODEL_NAMES[modelId] ?? `UNKNOWN_${modelId}`,
-        width, height, params
-      };
-    }
-    return cameras;
-  }
-
-  // Fixed readCameras method
-  readCameras_FIXED() {
-    const numCameras = this.readUint64();
-    const cameras = {};
-    for (let i = 0; i < numCameras; i++) {
-      const cameraId = this.readUint64();
-      const modelId = this.readInt32();
-      const width = this.readUint64();
-      const height = this.readUint64();
-      
-      // FIXED: Read the actual num_params from the binary file
-      const numParams = this.readUint64();
-      
-      const params = this.readFloat64Array(numParams);
-      cameras[cameraId] = {
-        id: cameraId,
-        modelId,
-        modelName: TestColmapReader.CAMERA_MODEL_NAMES[modelId] ?? `UNKNOWN_${modelId}`,
-        width, height, params
-      };
-    }
-    return cameras;
-  }
+// Test with mock data
+function testCameraParser() {
+    const parser = new CameraParser();
+    
+    // Test binary format
+    const binaryData = new ArrayBuffer(48);
+    const view = new DataView(binaryData);
+    
+    // Camera 1
+    view.setUint32(0, 1, true);
+    view.setFloat64(4, 500.0, true);
+    view.setFloat64(12, 0.01, true);
+    view.setFloat64(20, 0.001, true);
+    
+    // Camera 2
+    view.setUint32(24, 2, true);
+    view.setFloat64(28, 600.0, true);
+    view.setFloat64(36, 0.02, true);
+    view.setFloat64(44, 0.002, true);
+    
+    const cameras = parser.parseCameraData(binaryData, '.bin');
+    console.log('Binary format test:', cameras);
+    
+    // Test text format
+    const textData = `1 500.0 0.01 0.001 1920 1080
+2 600.0 0.02 0.002 1920 1080`;
+    
+    const textCameras = parser.parseCameraData(textData, '.txt');
+    console.log('Text format test:', textCameras);
+    
+    // Test validation
+    console.log('Validation test:', parser.validateCamera(cameras[0]));
 }
 
-// Create a minimal valid camera.bin buffer
-function createTestCameraBin() {
-  // Simple pinhole camera: 1 parameter (focal length)
-  const modelId = 1; // PINHOLE
-  const width = 640;
-  const height = 480;
-  const numParams = 1;
-  const params = [800.0]; // focal length
-  
-  // Calculate proper buffer size with alignment
-  const headerSize = 8 + 4 + 8 + 8 + 8; // camera_id + model_id + width + height + num_params
-  const paramsSize = numParams * 8;
-  const totalSize = headerSize + paramsSize;
-  
-  const buffer = new ArrayBuffer(totalSize);
-  const view = new DataView(buffer);
-  let offset = 0;
-  
-  console.log(`Creating test buffer: ${totalSize} bytes`);
-  console.log(`Header: ${headerSize} bytes, Params: ${paramsSize} bytes`);
-  
-  // camera_id
-  view.setBigUint64(offset, BigInt(1), true); offset += 8;
-  console.log(`Set camera_id at offset 0-7, new offset: ${offset}`);
-  
-  // model_id  
-  view.setInt32(offset, modelId, true); offset += 4;
-  console.log(`Set model_id at offset ${offset-4}-${offset-1}, new offset: ${offset}`);
-  
-  // width
-  view.setBigUint64(offset, BigInt(width), true); offset += 8;
-  console.log(`Set width at offset ${offset-8}-${offset-1}, new offset: ${offset}`);
-  
-  // height
-  view.setBigUint64(offset, BigInt(height), true); offset += 8;
-  console.log(`Set height at offset ${offset-8}-${offset-1}, new offset: ${offset}`);
-  
-  // num_params - THIS IS MISSING in current code!
-  view.setBigUint64(offset, BigInt(numParams), true); offset += 8;
-  console.log(`Set num_params at offset ${offset-8}-${offset-1}, new offset: ${offset}`);
-  
-  // params
-  for (let i = 0; i < numParams; i++) {
-    view.setFloat64(offset, params[i], true);
-    offset += 8;
-    console.log(`Set param[${i}] at offset ${offset-8}-${offset-1}, new offset: ${offset}`);
-  }
-  
-  return buffer;
+if (require.main === module) {
+    testCameraParser();
 }
 
-console.log('Testing camera.bin parsing...');
-const testBuffer = createTestCameraBin();
-
-console.log('\n=== Testing BROKEN version (should have wrong data) ===');
-try {
-  const reader1 = new TestColmapReader(testBuffer);
-  const cameras1 = reader1.readCameras_BROKEN();
-  console.log('Result from BROKEN version:', JSON.stringify(cameras1[1], null, 2));
-  console.log('Notice: missing num_params field read, so it reads wrong data!');
-} catch (error) {
-  console.error('Error parsing with BROKEN version:', error.message);
-}
-
-console.log('\n=== Testing FIXED version (should succeed) ===');
-try {
-  const reader2 = new TestColmapReader(testBuffer);
-  const cameras2 = reader2.readCameras_FIXED();
-  console.log('Success! Parsed camera:', JSON.stringify(cameras2[1], null, 2));
-} catch (error) {
-  console.error('Error parsing with FIXED version:', error.message);
-}
+module.exports = { testCameraParser };
