@@ -8,10 +8,11 @@ import * as THREE from 'three';
 /**
  * Build a line connecting camera positions sorted by image name.
  * @param {Object} images - COLMAP images dict
- * @param {Function} quaternionFromColmap - converts colmap quat to THREE.Quaternion
+ * @param {Function} quatFn - quaternion converter
+ * @param {Function} posFn - position converter (colmapToThree)
  * @returns {THREE.Line|null}
  */
-export function buildTrajectory(images, quaternionFromColmap) {
+export function buildTrajectory(images, quatFn, posFn) {
   const imgEntries = Object.values(images);
   if (imgEntries.length === 0) return null;
 
@@ -20,8 +21,8 @@ export function buildTrajectory(images, quaternionFromColmap) {
   );
 
   const positions = sorted.map(img => {
-    const q = quaternionFromColmap(img.q);
-    const t = new THREE.Vector3(img.t.x, img.t.y, img.t.z);
+    const q = quatFn(img.q);
+    const t = posFn(img.t);
     const invQ = q.clone().invert();
     return t.clone().applyQuaternion(invQ).negate();
   });

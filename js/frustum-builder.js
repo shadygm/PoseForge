@@ -30,9 +30,11 @@ export function buildPointCloud(points, size = 0.02) {
 
 /**
  * Build camera visualization meshes.
+ * @param {Function} quatFn - quaternion converter
+ * @param {Function} posFn - position converter (colmapToThree)
  * @param {string} mode - 'frustum' | 'arrow' | 'imagePlane'
  */
-export function buildCameraFrustums(cameras, images, quaternionFromColmap, mode = 'frustum') {
+export function buildCameraFrustums(cameras, images, quatFn, posFn, mode = 'frustum') {
   const group = new THREE.Group();
   const hitboxes = [];
   const imgEntries = Object.values(images);
@@ -42,8 +44,8 @@ export function buildCameraFrustums(cameras, images, quaternionFromColmap, mode 
     const cam = cameras[img.cameraId];
     if (!cam) continue;
 
-    const q = quaternionFromColmap(img.q);
-    const t = new THREE.Vector3(img.t.x, img.t.y, img.t.z);
+    const q = quatFn(img.q);
+    const t = posFn(img.t);
     const invQ = q.clone().invert();
     const pos = t.clone().applyQuaternion(invQ).negate();
 

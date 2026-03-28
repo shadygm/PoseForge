@@ -94,8 +94,26 @@ class PoseForgeViewer {
     }
   }
 
+  /** Convert COLMAP quaternion to Three.js quaternion. */
   quaternionFromColmap(q) {
     return new THREE.Quaternion(q.x, q.y, q.z, q.w);
+  }
+
+  /**
+   * Convert COLMAP world position to Three.js world position.
+   * COLMAP uses a right-handed coordinate system; Three.js is also right-handed
+   * but the Y axis convention differs. We negate Y and Z to fix orientation.
+   */
+  colmapToThree(pos) {
+    return new THREE.Vector3(pos.x, -pos.y, -pos.z);
+  }
+
+  /**
+   * Convert COLMAP camera rotation to Three.js quaternion.
+   * Negates Y and Z rotation components to match colmapToThree position flip.
+   */
+  colmapQuatToThree(q) {
+    return new THREE.Quaternion(-q.x, q.y, q.z, q.w);
   }
 
   /** Clear all scene data and load new COLMAP data. */
@@ -109,7 +127,7 @@ class PoseForgeViewer {
     this._buildPointCloud(this.pointArray, this._currentColorMode);
     this._buildCameraFrustums('frustum');
 
-    const traj = buildTrajectory(images, this.quaternionFromColmap.bind(this));
+    const traj = buildTrajectory(images, this.colmapQuatToThree.bind(this), this.colmapToThree.bind(this));
     if (traj) this.trajectoryGroup.add(traj);
 
     this.fitView();
@@ -130,9 +148,10 @@ class PoseForgeViewer {
     const colorArr = computePointColors(pointArray, colorMode);
 
     pointArray.forEach((p, i) => {
-      positions[i * 3] = p.x;
-      positions[i * 3 + 1] = p.y;
-      positions[i * 3 + 2] = p.z;
+      const tp = this.colmapToThree(p);
+      positions[i * 3] = tp.x;
+      positions[i * 3 + 1] = tp.y;
+      positions[i * 3 + 2] = tp.z;
     });
 
     const geom = new THREE.BufferGeometry();
@@ -153,7 +172,7 @@ class PoseForgeViewer {
     if (Object.keys(this.images).length === 0) return;
 
     const { group, hitboxes } = buildCameraFrustums(
-      this.cameras, this.images, this.quaternionFromColmap.bind(this), mode
+      this.cameras, this.images, this.colmapQuatToThree.bind(this), this.colmapToThree.bind(this), mode
     );
     this.frustumGroup.add(group);
     this.cameraMeshes = hitboxes;
@@ -192,7 +211,7 @@ class PoseForgeViewer {
     const img = this.images[imageId];
     if (!img) return;
 
-    const q = this.quaternionFromColmap(img.q);
+    const q = this.colmapQuatToThree(img.q);
     const t = new THREE.Vector3(img.t.x, img.t.y, img.t.z);
     const invQ = q.clone().invert();
     const pos = t.clone().applyQuaternion(invQ).negate();
