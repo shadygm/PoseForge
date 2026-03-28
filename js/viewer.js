@@ -26,7 +26,7 @@ class PoseForgeViewer {
     this.autoRotating = false;
     this.onCameraClick = null;
     this._currentColorMode = 'rgb';
-    this._currentPointSize = 0.02;
+    this._currentPointSize = 0.04;
 
     this.init();
   }
