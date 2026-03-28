@@ -109,11 +109,14 @@ export function classifyInputFiles(fileList) {
   const files = {};
   for (const f of fileList) {
     // Use webkitRelativePath to match files in subdirectories (e.g. sparse/0/cameras.bin)
-    const path = f.webkitRelativePath || f.name;
     const name = f.name;
     if (name === 'cameras.bin' || name === 'cameras.txt') files.cameras = f;
     else if (name === 'images.bin' || name === 'images.txt') files.images = f;
     else if (name === 'points3D.bin' || name === 'points3D.txt') files.points3D = f;
+    else if (isImageFile(name)) {
+      if (!files.imageFiles) files.imageFiles = {};
+      files.imageFiles[name] = f;
+    }
   }
   return files;
 }

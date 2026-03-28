@@ -103,22 +103,34 @@ class PoseForgeUI {
     const img = this._images[imageId];
     if (!img) return;
 
-    const file = this._imageFiles[img.name];
+    // Try direct lookup first, then fall back to basename for relative paths like "images/foo.jpg"
+    const imgName = img.name || '';
+    let file = this._imageFiles[imgName];
+    if (!file && imgName) {
+      const baseName = imgName.split(/[/\\]/).pop();
+      if (baseName) file = this._imageFiles[baseName] || null;
+    }
+
     if (!file) {
       // Image file not available — show a notice in the viewer
       const viewer = getImageViewer();
       const camera = this._cameras[img.cameraId] || null;
-      viewer.show('', img.name + ' (image file not loaded)', camera);
+      viewer.show(null, imgName + ' (image file not loaded)', camera);
       return;
     }
 
+    // Revoke any previously created object URL before creating a new one
+    if (this._currentImageObjectUrl) {
+      URL.revokeObjectURL(this._currentImageObjectUrl);
+      this._currentImageObjectUrl = null;
+    }
+
     const url = URL.createObjectURL(file);
+    this._currentImageObjectUrl = url;
+
     const viewer = getImageViewer();
     const camera = this._cameras[img.cameraId] || null;
-    viewer.show(url, img.name, camera);
-
-    // Revoke the object URL after a short delay to free memory
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    viewer.show(url, imgName, camera);
   }
 
   setupToggles() {

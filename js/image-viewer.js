@@ -121,8 +121,9 @@ class ImageViewer {
   }
 
   _applyTransform() {
+    // Scale before translate so pan speed stays in screen pixels regardless of zoom
     this._img.style.transform =
-      `translate(${this._offsetX}px, ${this._offsetY}px) scale(${this._scale})`;
+      `scale(${this._scale}) translate(${this._offsetX}px, ${this._offsetY}px)`;
   }
 
   _resetTransform() {
@@ -140,17 +141,32 @@ class ImageViewer {
    * @param {Object|null} camera - COLMAP camera object (optional)
    */
   show(src, name, camera) {
-    this._img.src = src;
+    if (src) {
+      this._img.src = src;
+      this._img.classList.remove('hidden');
+    } else {
+      this._img.removeAttribute('src');
+      this._img.classList.add('hidden');
+    }
+
     this._titleEl.textContent = name;
     this._resetTransform();
 
+    let infoText;
     if (camera) {
       const params = (camera.params || []).map(v => v.toFixed(2)).join(', ');
-      this._infoEl.textContent =
-        `Model: ${camera.model} | ${camera.width}×${camera.height} | params: [${params}]`;
+      const modelLabel = camera.modelName || camera.model || '';
+      infoText = `Model: ${modelLabel} | ${camera.width}×${camera.height} | params: [${params}]`;
     } else {
-      this._infoEl.textContent = name;
+      infoText = name;
     }
+
+    if (!src) {
+      const unavailableNote = 'Image not available';
+      infoText = infoText ? `${infoText} — ${unavailableNote}` : unavailableNote;
+    }
+
+    this._infoEl.textContent = infoText;
 
     this._overlay.classList.remove('hidden');
     document.addEventListener('keydown', this._onKey);
@@ -158,7 +174,8 @@ class ImageViewer {
 
   hide() {
     this._overlay.classList.add('hidden');
-    this._img.src = '';
+    this._img.removeAttribute('src');
+    this._img.classList.remove('hidden');
     document.removeEventListener('keydown', this._onKey);
   }
 }

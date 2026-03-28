@@ -31,6 +31,7 @@ export function buildCameraList(images, onJump, onViewImage) {
       imgBtn.className = 'camera-item-img-btn';
       imgBtn.title = 'View image';
       imgBtn.textContent = '🖼';
+      imgBtn.setAttribute('aria-label', 'View image');
       imgBtn.addEventListener('click', e => {
         e.stopPropagation();
         onViewImage(img.id);
