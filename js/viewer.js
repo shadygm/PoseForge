@@ -199,12 +199,45 @@ class PoseForgeViewer {
   }
 
   clearScene() {
+    // Clear all groups
     this.frustumGroup.clear();
     this.pointGroup.clear();
     this.trajectoryGroup.clear();
+    
+    // Remove camera meshes from scene
     this.cameraMeshes.forEach(m => this.scene.remove(m));
     this.cameraMeshes = [];
-    this.pointCloud = null;
+    
+    // Clear point cloud
+    if (this.pointCloud) {
+      this.pointCloud.geometry.dispose();
+      this.pointCloud.material.dispose();
+      this.scene.remove(this.pointCloud);
+      this.pointCloud = null;
+    }
+    
+    // Clear stored data
+    this.cameras = {};
+    this.images = {};
+    this.points = {};
+    this.pointArray = [];
+    
+    // Reset camera position
+    this.camera.position.set(0, 5, 10);
+    this.controls.reset();
+    
+    // Remove grid helper if it exists
+    if (this.gridHelper) {
+      this.scene.remove(this.gridHelper);
+      this.gridHelper = null;
+    }
+    
+    // Reset scene
+    this.scene.clear();
+    this.scene.background = new THREE.Color(0x0a0a0a);
+    
+    // Re-add essential elements
+    this.init();
   }
 
   fitView() {
