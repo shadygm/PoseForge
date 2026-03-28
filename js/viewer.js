@@ -120,10 +120,18 @@ class PoseForgeViewer {
     this.pointCloud = null;
     if (pointArray.length === 0) return;
 
-    const positions = new Float32Array(pointArray.length * 3);
-    const colorArr = computePointColors(pointArray, colorMode);
+    // Filter out points with extreme coordinate values to prevent viewport clipping
+    const filteredPoints = pointArray.filter(p => {
+      const coordThreshold = 10000; // Filter out extreme coordinates
+      return Math.abs(p.x) < coordThreshold && 
+             Math.abs(p.y) < coordThreshold && 
+             Math.abs(p.z) < coordThreshold;
+    });
 
-    pointArray.forEach((p, i) => {
+    const positions = new Float32Array(filteredPoints.length * 3);
+    const colorArr = computePointColors(filteredPoints, colorMode);
+
+    filteredPoints.forEach((p, i) => {
       positions[i * 3] = p.x;
       positions[i * 3 + 1] = p.y;
       positions[i * 3 + 2] = p.z;
@@ -174,10 +182,20 @@ class PoseForgeViewer {
     const maxDim = Math.max(size.x, size.y, size.z);
     const dist = maxDim * 1.5;
 
-    this.camera.position.set(center.x + dist * 0.5, center.y + dist * 0.5, center.z + dist);
+    // Ensure all points are visible by adjusting camera bounds
+    const safeNear = Math.max(maxDim * 0.001, 0.001);
+    const safeFar = Math.max(maxDim * 100, maxDim * 10);
+    
+    // Add margin to camera position to ensure all points are visible
+    const margin = maxDim * 0.1;
+    this.camera.position.set(
+      center.x + dist * 0.5 + margin,
+      center.y + dist * 0.5 + margin,
+      center.z + dist + margin
+    );
     this.controls.target.copy(center);
-    this.camera.near = maxDim * 0.001;
-    this.camera.far = maxDim * 100;
+    this.camera.near = safeNear;
+    this.camera.far = safeFar;
     this.camera.updateProjectionMatrix();
     this.controls.update();
   }
